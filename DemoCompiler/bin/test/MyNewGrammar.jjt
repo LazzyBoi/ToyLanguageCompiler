@@ -1,0 +1,561 @@
+/********* WRITEN BY ZZG *********/
+/******** DATE: 12,25,2017 *******/
+/**
+ * JJTree template file created by SF JavaCC plugin 1.5.28+ wizard for JavaCC 1.5.0+
+ */
+options
+{
+  static = false;
+  //LOOKAHEAD=1;
+}
+
+PARSER_BEGIN(MyNewGrammar)
+package test;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import util.*;
+
+public class MyNewGrammar
+{
+  public static void main(String args [])
+  {
+    FileInputStream fileStream;
+    try
+    {
+      fileStream = new FileInputStream("test3.c");			 //�������ڴ˴��޸�test1.c,test2.c,test3.c
+      MyNewGrammar parser = new MyNewGrammar(fileStream);
+      System.out.println("Reading from file ...");
+      try
+      {
+        SimpleNode rootNode = parser.Start();
+        rootNode.dump(" "); //ץȡ���ص��﷨����    
+      }
+      catch (Exception e)
+      {
+        System.out.println("NOK.");
+        System.out.println(e.getMessage());
+      }
+      catch (Error e)
+      {
+        System.out.println("Oops.");
+        System.out.println(e.getMessage());
+      }
+    }
+    catch (FileNotFoundException e1)
+    {
+      // TODO Auto-generated catch block
+      e1.printStackTrace();
+    }
+  }
+}
+
+PARSER_END(MyNewGrammar)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+| < "//" (~[ "\n", "\r" ])*
+    (
+      "\n"
+    | "\r"
+    | "\r\n"
+    ) >
+| < "/*" (~[ "*" ])* "*"
+    (
+      ~[ "/" ] (~[ "*" ])* "*"
+    )*
+    "/" >
+}
+
+TOKEN :
+{
+  < CONSTANT :
+    (< DIGIT >)+
+    (
+      "." (< DIGIT >)+
+    )? >
+| < DIGIT : [ "0"-"9" ] >
+}
+
+TOKEN : /* LITERALS */
+{
+  < INTEGER_LITERAL :
+    < DECIMAL_LITERAL > ([ "l", "L" ])?
+  | < HEX_LITERAL > ([ "l", "L" ])?
+  | < OCTAL_LITERAL > ([ "l", "L" ])? 
+  >
+| < #DECIMAL_LITERAL : [ "1"-"9" ] ([ "0"-"9" ])* >
+| < #HEX_LITERAL : "0" [ "x", "X" ] ([ "0"-"9", "a"-"f", "A"-"F" ])+ >
+| < #OCTAL_LITERAL : "0" ([ "0"-"7" ])* >
+}
+
+TOKEN : /* KEYWORDS */
+{
+  < MAIN : "main" >
+| < INT : "int" >
+| < FLOAT : "real" >
+| < VOID : "void" >
+| < IF : "if" >
+| < ELSE : "else" >
+| < WHILE : "while" >
+| < FOR : "for" >
+| < RETURN : "return" >
+| <THEN :"then">
+}
+
+TOKEN : /* OPERATORS */
+{
+  < PLUS : "+" >
+| < MINUS : "-" >
+| < MULTIPLY : "*" >
+| < DIVIDE : "/" >
+| < ASSIGN : "=" >
+}
+
+TOKEN : /* RELATIONSHIPOPERATOR */
+{
+  < LT : "<" >
+| < LE : "<=" >
+| < GT : ">" >
+| < GE : ">=" >
+| < EQ : "==" >
+| < NE : "!=" >
+}
+
+TOKEN : /* BOOLOPERATOR */
+{
+  < AND : "&&" >
+| < OR : "||" >
+| < NOT : "!" >
+}
+
+TOKEN : /* IDENTIFIERS */
+{
+  < IDENTIFIER :
+    < LETTER >
+    (
+      < LETTER >
+    | < DIGIT >
+    )* >
+| < #LETTER : [ "_", "a"-"z", "A"-"Z" ] >
+}
+
+TOKEN :
+{
+  < LC : "(" >
+| < RC : ")" >
+| < LM : "[" >
+| < RM : "]" >
+| < LB : "{" >
+| < RB : "}" >
+}
+
+SimpleNode Start() :
+{QTTable qtTable = new QTTable();}
+{
+  Expression(qtTable)
+  {
+    QTInfo END = new QTInfo("", "", "", "");
+    qtTable.addQTInfo(END);
+    //qtTable.trueChain.add(END);
+    //qtTable.falseChain.add(END);
+    qtTable.mergeFalseChain();
+    qtTable.mergeTrueChain();
+    qtTable.printQTTable();
+    return jjtThis;
+  }
+}
+//程序
+void Expression(QTTable qtTable) :
+{}
+{
+  < LB > MainStatement(qtTable) < RB >
+}
+
+void MainStatement(QTTable qtTable) :
+{}
+{
+  Statement(qtTable) //|(MainStatement())*		
+}
+
+void Statement(QTTable qtTable) :
+{
+}
+{
+  (
+    SequenceStatement(qtTable)						
+  | IfStatement(qtTable)							 
+  | While(qtTable)
+  | Expression(qtTable)
+  )*
+  {
+  }							
+}
+
+//˳��
+void SequenceStatement(QTTable qtTable) :
+{}
+{
+  (
+    declaration(qtTable)
+  | copy(qtTable)
+  )
+  ";"			 //�����͸�ֵ
+}
+
+void declaration(QTTable qtTable) :
+{
+  Token first, middle;
+  Token eq = null;
+}
+{
+  //ÿ�ж���һ�����飬���ɶ���������
+  (
+    < INT >
+  | < FLOAT >
+  )
+  middle = < IDENTIFIER >
+  (
+    eq = < ASSIGN > first = < CONSTANT >
+    {
+      QTInfo qt = new QTInfo(eq.image, first.image, "_", middle.image);
+      qtTable.addQTInfo(qt);
+    }	
+    //����ֻ�������ĵ�һ����ֵ���������������ӳ���,���Ժ�����ֵ����������趨��first��middleΪToken����
+  )?
+  ("," < IDENTIFIER >)* 
+  (< LM > < CONSTANT > < RM >)*	 //��������ά
+}
+
+void copy(QTTable qtTable) :
+{
+  String first;
+  Token middle;
+  Token eq = null;
+}
+{
+  (middle = < IDENTIFIER >) (eq = < ASSIGN >)
+  (
+    first = expression(qtTable)
+  )
+  {
+    QTInfo qt = new QTInfo(eq.image, first, "_", middle.image);
+    qtTable.addQTInfo(qt);
+  }
+}
+
+//����
+void IfStatement(QTTable qtTable) :
+{
+  String skipStr;
+  QTInfo pre;
+}
+{
+  //LOOKAHEAD(3)
+  < IF > < LC > BoolExpression(qtTable) < RC > < THEN >	//Condition(qtTable)
+  {
+    pre = qtTable.getLastQt();
+  }
+//  (
+//    (
+//      (
+//        assign(qtTable) ";" //{qtTable.mergeTrueChain(qtTable.getLastQt().getInnerIdSeqen());}
+//        					
+//      )
+//    |
+//      (
+//        { //
+//        		}
+//        //LOOKAHEAD(3)
+//        Expression(qtTable)|IfStatement(qtTable)|While(qtTable)
+//        {
+//		}
+//        
+//      )
+//    )
+//      	SequenceStatement(qtTable)						 //˳�����
+//  		| IfStatement(qtTable)							 //�������
+//  		| While(qtTable)
+	Statement(qtTable) 
+    { } 
+    //������ת������ʽʱӦ���Ǹ�����ĵ�һ������λ��
+  //) //����Ϊ��ִ����Ϻ���ת������else���飩
+  ElseStatement(qtTable)
+}
+
+void ElseStatement(QTTable qtTable) :
+{String skipStr;}
+{
+  < ELSE >
+  {
+    skipStr = VariableNameGenerator.genVariableName();
+    QTInfo qt1 = new QTInfo("J", "_", "_", skipStr);
+    qtTable.addQTInfo(qt1);
+    qtTable.trueChain.add(qt1);
+  }
+// (
+//       assign(qtTable) ";" //{qtTable.mergeTrueChain(qtTable.getLastQt().getInnerIdSeqen());}       					
+//      )
+//    |
+//      (
+//        { //
+//        		}
+//        Expression(qtTable)|SequenceStatement(qtTable)|IfStatement(qtTable)|While(qtTable)
+//        {
+//		}
+//        
+//      )
+//		SequenceStatement(qtTable)						 //˳�����
+//  		| IfStatement(qtTable)							 //�������
+//  		| While(qtTable)
+  		Statement(qtTable)
+  {
+    qtTable.falseChain.add(qtTable.getLastQt());
+  }
+}
+
+//Ϊʹ����ģ����⣬copy()��assign()ʵ����ͬ
+void assign(QTTable qtTable) :
+{
+  String first;
+  Token middle;
+  Token eq = null;
+}
+{
+  (middle = < IDENTIFIER >) (eq = < ASSIGN >)
+  (
+    first = expression(qtTable)
+  )
+  {
+    QTInfo qt = new QTInfo(eq.image, first, "_", middle.image);
+    qtTable.addQTInfo(qt);
+    qtTable.trueChain.add(qt);
+  }
+}
+
+//�������ʽ
+String BoolExpression(QTTable qtTable) :								 //��
+{
+  String newTemp=null,left=null,right=null;
+}
+{
+  left = AndExp(qtTable)
+  {
+  }
+  (
+    < OR > 
+     right = AndExp(qtTable)
+    {
+      //�Ǻ����߷��������������������+1
+      //qtTable.mergeFalseChain();
+      //qtTable.falseChain.clear();
+    }
+  )*
+  {
+    return newTemp;
+  }
+}
+
+String AndExp(QTTable qtTable) :										 //��
+{
+  String newTemp=null,left=null,right=null;
+}
+{
+  left = NotExp(qtTable)
+  {
+    newTemp=left;
+  }
+  (
+    < AND > {//�Ǻ����߷��������������������+1
+      qtTable.mergeFalseChain();
+       }
+	 right = NotExp(qtTable)
+    {//��������
+      //qtTable.mergeTrueChain();
+      //qtTable.trueChain.clear();
+    }
+  )*
+  {
+    return newTemp;	
+  }
+}
+
+String NotExp(QTTable qtTable) :
+{
+  String Temp=null;	
+  int tag = 0;
+}	 //��
+{
+  (< NOT >{tag = 1;})?
+	Temp=Condition(qtTable)
+  {
+    	
+    /*enter = VariableNameGenerator.genVariableName();
+    QTInfo qt1 = new QTInfo("JNZ",newTemp, "_", enter);
+    qtTable.addQTInfo(qt1);*/
+    
+    /*	//�ж�����:if(a)�ķ���ֵ�Ƿ�Ϊ��
+    int value=Integer.parseInt(newTemp);
+    if (value == 0 && tag == 0) return false;
+    else if (value == 0 && tag == 1) return true;
+    else if (value != 0 && tag == 0) return true;
+    else if (value != 0 && tag == 1) return false;
+    */
+  }
+	{
+	  return Temp;
+	 }
+}
+
+//��ϵ���ʽ
+String Condition(QTTable qtTable) :
+{
+  String left=null, right=null, newTemp = null, falseStr, trueStr;
+  Token rp=null;
+  QTInfo pre;
+}
+{
+  (
+    left = expression(qtTable) {newTemp=left; }
+    (
+      //<,<=,>,>=,==,!=
+      (
+        rp = < LT >
+      | rp = < LE >
+      | rp = < GT >
+      | rp = < GE >
+      | rp = < EQ >
+      | rp = < NE >
+      )
+      right = expression(qtTable)
+      {
+      newTemp = VariableNameGenerator.genVariableName();
+      falseStr = VariableNameGenerator.genVariableName();
+      QTInfo qt1 = new QTInfo("J" + rp.image, left, right, newTemp);
+      qtTable.addQTInfo(qt1);
+      qtTable.trueChain.add(qt1);
+
+      QTInfo qt2 = new QTInfo("J", "_", "_", falseStr);
+      qtTable.addQTInfo(qt2);
+      qtTable.falseChain.add(qt2);        
+      }
+    )*
+  )
+  {
+	 if(right==null)
+    {
+        String enter = VariableNameGenerator.genVariableName();
+    	QTInfo qt1 = new QTInfo("JNZ",newTemp, "_", enter);
+    	qtTable.addQTInfo(qt1);
+    	qtTable.trueChain.add(qt1);
+    	
+    	String newTemp2=VariableNameGenerator.genVariableName();
+   		QTInfo qt2 = new QTInfo("J","_", "_", newTemp2);
+    	//qt2.setResult(qt2.getInnerIdSeqen()+1);
+    	qtTable.addQTInfo(qt2);
+    	qtTable.falseChain.add(qt2);
+    }
+    return newTemp;
+  }
+}
+
+//���ʽ
+String expression(QTTable qtTable) :
+{
+  String first, middle, newTemp;
+  Token op;
+}
+{	
+  first = term(qtTable)
+  {
+    newTemp = first;
+  }
+  (
+    (
+      op = < PLUS >
+    | op = < MINUS >
+    )
+    middle = term(qtTable)
+    {
+      newTemp = VariableNameGenerator.genVariableName();
+      QTInfo qt = new QTInfo(op.image, first, middle, newTemp);
+      qtTable.addQTInfo(qt);
+      first = newTemp;
+    }
+  )*
+  {
+    return newTemp;
+  }
+}
+
+String term(QTTable qtTable) :
+{
+  String first=null, middle=null, newTemp=null;
+  Token op;
+}
+{
+  first = unary(qtTable)
+  {
+    newTemp = first;
+  }
+  (
+    (
+      op = < MULTIPLY >
+    | op = < DIVIDE >
+    )
+    middle = unary(qtTable)
+    {
+      newTemp = VariableNameGenerator.genVariableName();
+      QTInfo qt = new QTInfo(op.image, first, middle, newTemp);
+      qtTable.addQTInfo(qt);
+      first = newTemp;			
+    }
+  )*
+  {
+   
+    return newTemp;
+  }
+}
+
+String unary(QTTable qtTable) :
+{
+  String str = null;
+  Token token = null;
+}
+{
+  (
+    token = < IDENTIFIER >
+    {
+      str = token.image;
+    }
+  | 
+    token = < CONSTANT >
+    {
+      str = token.image;
+    }
+  |
+    (
+      < LC > str = expression(qtTable) < RC >
+    )
+  ) 
+  {
+    return str;
+  }
+}
+//ѭ��
+void While(QTTable qtTable) :
+{}
+{
+  //֧�ָ�ֵ�������������㡢�������顢ѭ�������Ƕ��butĿǰֻ֧�ָ�ֵ��䣬(#^_^#)
+  < WHILE > < LC > Condition(qtTable) < RC >
+//  (
+//    (
+//    copy(qtTable)
+//  	)*
+//  ";")
+	
+	Statement(qtTable)
+}

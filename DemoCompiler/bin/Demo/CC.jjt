@@ -1,0 +1,461 @@
+
+options {
+   STATIC = false;   // this allows only one parser object to be present default: true
+   BUILD_PARSER = true;  // default: true
+   BUILD_TOKEN_MANAGER = true; // default: true
+   SANITY_CHECK = true; // performs syntactic and semantic checks such as detection of left recursion, detection of ambiguity and bad usage of empty expansions
+   IGNORE_CASE = false;  // generated token manager ignores case in the token specifications and the input files default: false
+   LOOKAHEAD = 1;    // The number of tokens to look ahead before making a decision at a choice point during parsing default: 1
+//   CHOICE_AMBIGUITY_CHECK = 2;  the number of tokens considered in checking choices of the form "A | B | ..." for ambiguity
+     JAVA_UNICODE_ESCAPE = true; // the generated parser uses an input stream object that processes Java Unicode escapes
+//   UNICODE_INPUT = false;      // the generated parser uses an input stream object that reads Unicode files
+  FORCE_LA_CHECK=true;
+  JAVA_UNICODE_ESCAPE = true;
+  MULTI = true;
+  VISITOR = true;
+ }
+ PARSER_BEGIN(CMinusParser)
+ package Demo;
+
+    public class CMinusParser {
+        ParseResult result = new ParseResult();
+        public ParseResult Parse(){
+
+               try {
+               Program().dump("");
+               }
+               catch (ParseException e){
+               result.addException(e);
+               }
+               return result;
+        }
+
+    }
+
+ PARSER_END(CMinusParser)
+
+
+
+
+
+
+
+
+
+
+
+/* white space is to be ignored*/
+SKIP :
+{
+  " "    // blanks
+| "\t"   // tab
+| "\n"   // new line (line feed) character
+| "\r"   // carriage return character (these and new line characters are skipped)
+| "\f"
+| < "//" (~["\n","\r"])* ("\n" | "\r" | "\r\n") > // skip single-line comments
+}
+
+
+/* COMMENTS */
+SKIP :
+{
+  "/*" : WithinComment
+}
+
+<WithinComment> SKIP :
+{
+  "*/" : DEFAULT
+}
+
+
+
+/* COMMENTS_2 */
+SKIP:
+{
+	"//":WithinComment2
+}
+
+
+<WithinComment2> SKIP:
+{
+	"\n":DEFAULT
+}
+
+<WithinComment> MORE :
+{
+  <~[]>
+}
+
+/* exponent */
+TOKEN :
+{
+<#EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >  	
+}
+
+/* fraction */
+TOKEN :
+{
+<FRACTION: <DOT> (["0"-"9"])+ >
+}
+
+
+/* realnumber */
+TOKEN :
+{
+<REALNUMBER:<intnumber><EXPONENT>|<intnumber><FRACTION>(<EXPONENT>)?>
+}
+
+/* NUM */
+TOKEN:
+{
+	<NUM:<REALNUMBER>|<intnumber>|<digit>>
+}
+
+
+
+
+
+/* keywords of C- */
+TOKEN :
+{
+ < ELSE: "else" >
+| < IF: "if" >
+| < INT: "int" >
+| < RETURN: "return" >
+| < VOID: "void" >
+| < WHILE: "while" >
+| < REAL: "real">
+| < THEN: "then">
+}
+
+/* identifier */
+TOKEN :
+{
+  < ID: <letter> (<letter>|<digit>)* >
+|
+  < #letter:
+      [
+         "A"-"Z",
+         "a"-"z"
+      ]
+  >
+}
+
+/* intNumber */
+TOKEN :
+{
+  < intnumber: <digit> (<digit>)* >
+}
+
+
+/* digit */
+TOKEN :
+{
+< #digit:
+      [
+         "0"-"9"
+      ]
+>
+}
+
+
+/* SEPARATORS */
+TOKEN :
+{
+  < LPAREN: "(" >
+| < RPAREN: ")" >
+| < LBRACE: "{" >
+| < RBRACE: "}" >
+| < LBRACKET: "[" >
+| < RBRACKET: "]" >
+| < SEMICOLON: ";" >
+| < COMMA: "," >
+| < DOT: "." >
+}
+
+/* OPERATORS */
+TOKEN :
+{
+  < PLUS: "+" >
+| < MINUS: "-" >
+| < STAR: "*" >
+| < SLASH: "/" >
+| < ASSIGN: "=" >
+| < LT: "<" >
+| < RT: ">" >
+| < EQ: "==" >
+| < LE: "<=" >
+| < GE: ">=" >
+| < NE: "!=" >
+
+}
+
+
+
+
+
+SimpleNode Program():
+{System.out.println("Pragram start");}
+{
+	compoundstmt()<EOF>
+  {return jjtThis;}
+}
+
+
+
+void stmt():
+{}
+{	
+	decl()|ifstmt()|whilestmt()|assgstmt()|compoundstmt()
+}
+
+void compoundstmt():
+{
+	System.out.println("compoundstmt");
+}
+{
+	
+
+	lb() stmts() rb()
+}
+void lb():
+{}
+{
+  "{"
+}
+void rb():
+{}
+{
+  "}"
+}
+
+
+
+//the way solving the exception
+JAVACODE
+void errorSkipTo(int kind){
+	ParseException e = generateParseException();
+	result.addException(e);
+	Token t;
+	do{
+		t = getNextToken();
+	}while(t.kind!=kind&&t.kind!=EOF);
+	//Because the next token is wrong, so we have to skip it
+	//do-loop skip the wrong token
+}
+
+void stmts():
+{}
+{
+	stmt() stmts()|epsilon()
+}
+
+void ifstmt():
+{}
+{
+	iff() leftb() boolexpr() rightb() thenn() stmt() els() stmt()
+}
+void thenn():
+{}
+{
+  "then"
+}
+void els():
+{}
+{
+  "else"
+}
+
+void iff():
+{}
+{
+  "if"
+}
+
+void whilestmt():
+{}
+{
+	loop() leftb() boolexpr() rightb() stmt()
+}
+
+void loop():
+{}
+{
+  "while"
+}
+void leftb():
+{}
+{
+  "("
+}
+void rightb():
+{}
+{
+  ")"
+}
+
+void assgstmt():
+{}
+{
+	identity() assi() arithexpr() semicol()
+}
+void assi():
+{}
+{
+  "="
+}
+
+
+void decl():
+{}
+{
+	type() list() semicol()
+}
+void semicol():
+{}
+{
+  ";"
+}
+
+void type():
+{}
+{
+	integer() | realnumber()
+}
+void integer():
+{}
+{
+  "int"
+}
+void realnumber():
+{}
+{
+  "real"
+}
+
+
+void list():
+{}
+{
+	identity() list1()
+}
+void identity():
+{}
+{
+  <ID>
+}
+
+void list1():
+{}
+{
+	comma() list()|epsilon()
+}
+
+void comma():
+{}
+{
+  ","
+}
+
+
+
+void boolexpr():
+{}
+{
+	arithexpr() boolop() arithexpr()
+}
+
+void boolop():
+{}
+{
+	lessthan()|greaterthan()|lessequal()|greaterequal()|equal()
+}
+void lessthan():
+{}
+{
+  "<"
+}
+void greaterthan():
+{}
+{
+  ">"
+}
+void lessequal():
+{}
+{
+  "<="
+}
+void greaterequal():
+{}
+{
+  ">="
+}
+void equal():
+{}
+{
+  "=="
+}
+
+
+
+void arithexpr():
+{}
+{
+	multexpr() arithexprprime()
+}
+
+void arithexprprime():
+{}
+{
+	pl() multexpr() arithexprprime()|mi() multexpr() arithexprprime()|epsilon()
+}
+void pl():
+{}
+{
+  "+"
+}
+void mi():
+{}
+{
+  "-"
+}
+
+void multexpr():
+{}
+{
+	simpleexpr() multexprprime()
+}
+
+void multexprprime():
+{}
+{
+	sta() simpleexpr() multexprprime()|ob() simpleexpr() multexprprime()|epsilon()
+}
+void sta():
+{}
+{
+  "*"
+}
+void ob():
+{}
+{
+  "/"
+}
+
+void simpleexpr():
+{}
+{
+	identity()|number()|leftb() arithexpr() rightb()
+}
+
+void number():
+{}
+{
+  <NUM>
+}
+
+void epsilon():
+{}
+{
+  {}
+}
